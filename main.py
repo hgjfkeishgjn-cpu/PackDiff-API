@@ -7,6 +7,7 @@ from pypdf import PdfReader
 from pydantic import BaseModel
 
 API_KEY_NAME = "X-Internal-Secret"
+# Load from environment variable on Render, default to hardcoded secret for testing
 EXPECTED_SECRET = os.getenv("INTERNAL_SECRET", "P4CKdiff@25")
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=True)
 
@@ -23,7 +24,6 @@ app = FastAPI(
     title="PackDiff API",
     description="Extract text from two PDF files and calculate a structured line-by-line text diff.",
     version="1.0.0",
-    dependencies=[Depends(verify_secret_key)],
 )
 
 class DiffSummary(BaseModel):
@@ -51,6 +51,7 @@ def extract_text_from_pdf_bytes(file_bytes: bytes) -> str:
 
 @app.get("/", tags=["Health"])
 async def health_check():
+    """Public endpoint for Render health checks and pinging."""
     return {"status": "ok", "service": "PackDiff Engine"}
 
 @app.post(
@@ -58,6 +59,7 @@ async def health_check():
     response_model=DiffResponse,
     tags=["Comparison"],
     summary="Compare two PDF documents",
+    dependencies=[Depends(verify_secret_key)],  # Protected endpoint
 )
 async def diff_pdfs(
     original_file: UploadFile = File(..., description="Original PDF document"),
