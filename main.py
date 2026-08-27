@@ -1,14 +1,29 @@
 import difflib
 import io
-from fastapi import FastAPI, File, HTTPException, UploadFile, status
-from fastapi.responses import JSONResponse
+import os
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+from fastapi.security import APIKeyHeader
 from pypdf import PdfReader
 from pydantic import BaseModel
+
+API_KEY_NAME = "X-Internal-Secret"
+EXPECTED_SECRET = os.getenv("INTERNAL_SECRET", "P4CKdiff@25")
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=True)
+
+def verify_secret_key(api_key: str = Depends(api_key_header)):
+    """Blocks requests that do not contain the matching secret header."""
+    if api_key != EXPECTED_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized: Direct access is restricted to API.market requests only.",
+        )
+    return api_key
 
 app = FastAPI(
     title="PackDiff API",
     description="Extract text from two PDF files and calculate a structured line-by-line text diff.",
     version="1.0.0",
+    dependencies=[Depends(verify_secret_key)],
 )
 
 class DiffSummary(BaseModel):
